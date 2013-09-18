@@ -1208,7 +1208,9 @@ without the work and dedication of Dave Rolsky.
 =head1 SUPPORT
 
 Support is provided by the author. Please report bugs or make feature
-requests to the email address below.
+requests to the author or use the GitHub repository:
+
+L<http://github.com/boftx/DateTimeX-Fiscal-Fiscal5253>
 
 =head1 AUTHOR
 
