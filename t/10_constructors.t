@@ -107,6 +107,12 @@ my @goodparams = (
         },
     },
     {
+        tname => 'good date parameter, 12/31/2012',
+        params => {
+            date => '12/31/2012',
+        },
+    },
+    {
         tname => 'good date parameter with single digit days/months',
         params => {
             date => '1/1/2012',

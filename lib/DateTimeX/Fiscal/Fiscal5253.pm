@@ -1,8 +1,9 @@
 package DateTimeX::Fiscal::Fiscal5253;
 
 use strict;
+use warnings;
 
-our $VERSION = '1.02';
+our $VERSION = '1.03';
 
 use Carp;
 use DateTime;
@@ -63,7 +64,7 @@ my $_str2dt = sub {
     if ( $date =~ m/(^\d{4})\-(\d{1,2})\-(\d{1,2})($|\D+)/ ) {
         $y = $1, $m = $2, $d = $3;
     } elsif ( $date =~ m/^(\d{1,2})\/(\d{1,2})\/(\d{4})($|\D+)/ ) {
-        $y = $3, $m = $2, $d = $1;
+        $y = $3, $m = $1, $d = $2;
     } else {
         croak "Unable to parse date string: $date";
     }
