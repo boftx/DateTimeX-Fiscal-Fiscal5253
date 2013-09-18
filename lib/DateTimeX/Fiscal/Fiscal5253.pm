@@ -345,8 +345,7 @@ sub new
         _truncated => undef,
     }, $class;
     foreach ( @params ) {
-        $self->{$_} = $args{$_};
-        delete($args{$_});
+        $self->{$_} = delete($args{$_});
     };
     if ( scalar(keys(%args)) ) {
         croak 'Unknown parameter(s): '.join(',',keys(%args));
@@ -512,14 +511,13 @@ sub contains
     # so return 0 to differentiate this from an error condition
     return 0 if $date lt $cdata->{start} || $date gt $cdata->{end};
 
-    # since the date is in the calendar, let's return it's period,
+    # since the date is in the calendar, let's return it's week,
     # and optionally, a structure with period and week number.
+
     my $w;
     for ( $w = 1; $date gt $whash->{$w}->{end}; $w++ ) {
-        if ( $w > $cdata->{weeks} ) {
-            # this should NEVER happen
-            croak 'FATAL ERROR! RAN OUT OF WEEKS';
-        }
+        # this should NEVER fire!
+        croak 'FATAL ERROR! RAN OUT OF WEEKS' if $w > $cdata->{weeks};
     }
     my $p = $whash->{$w}->{period};
 
@@ -544,7 +542,7 @@ my $_period_attr = sub {
         croak "Invalid period specified: $args{period}";
     }
 
-    # we want to return a copy so the guts can't be changed
+    # return a copy so the guts hopefully can't be changed
     my %phash = %{$self->{"_$cal"}->{$args{period}}};
 
     return $attr eq 'period' ? %phash : $phash{$attr};
@@ -607,7 +605,7 @@ my $_week_attr = sub {
         croak "Invalid week specified: $args{week}";
     }
 
-    # make a copy so the outside can't change the guts
+    # make a copy so the outside (hopefully) can't change the guts
     my %whash = %{$self->{"_${cal}_weeks"}->{$args{week}}};
 
     return $attr eq 'week' ? %whash : $whash{$attr};
@@ -722,7 +720,7 @@ Default: 12
 =item C<end_dow>
 
 sets the last day of the week of the fiscal year. This is an
-integer in the range 1 .. 7 with Monday being 1. Remember, a 52/52 week
+integer in the range 1 .. 7 with Monday being 1. Remember, a 52/53 week
 fiscal calendar always ends on the same weekday. Default: 6 (Saturday)
 
 =item C<end_type>
