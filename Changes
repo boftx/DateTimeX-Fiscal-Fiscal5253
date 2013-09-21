@@ -1,5 +1,10 @@
 Revision history for Perl extension DateTimeX::Fiscal::Fiscal5253
 
+2013-09-21 22:30  jim
+
+        * Corrected error that prevented proper parsing of mm/dd/yyyy format,
+          added test to confirm fix.
+
 2012-08-11 05:46  jim
 
 	* lib/DateTimeX/Fiscal/Fiscal5253.pm, t/30_methods.t,
