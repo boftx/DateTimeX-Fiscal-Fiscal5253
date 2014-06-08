@@ -3,7 +3,7 @@ package DateTimeX::Fiscal::Fiscal5253;
 use strict;
 use warnings;
 
-our $VERSION = '1.03';
+our $VERSION = '1.04';
 
 use Carp;
 use DateTime;
@@ -13,14 +13,14 @@ use Data::Dumper;
 
 my $pkg = __PACKAGE__;
 
-my @params = qw(
+my @params = ( qw(
     end_month
     end_dow
     end_type
     leap_period
     year
     date
-);
+) );
 
 my $defaults = {
     end_month => 12,
@@ -29,7 +29,7 @@ my $defaults = {
     leap_period => 'last',
 };
 
-my @periodmonths = qw(
+my @periodmonths = ( qw(
     January
     February
     March
@@ -42,7 +42,7 @@ my @periodmonths = qw(
     October
     November
     December
-);
+) );
 
 # Utility function to validate values supplied as a calendar style.
 my $_valid_cal_style = sub {
@@ -313,13 +313,13 @@ sub new
     }
 
     croak "Invalid value for param end_type: $args{end_type}"
-        unless $args{end_type} =~ /^(last|closest)$/;
+        unless $args{end_type} =~ /^(?:last|closest)$/;
     croak "Invalid value for param end_month: $args{end_month}"
         if $args{end_month} < 1 || $args{end_month} > 12;
     croak "Invalid value for param end_dow: $args{end_dow}"
         if $args{end_dow} < 1 || $args{end_dow} > 7;
     croak "Invalid value for param leap_period: $args{leap_period}"
-        unless $args{leap_period} =~ /^(first|last)$/;
+        unless $args{leap_period} =~ /^(?:first|last)$/;
 
     # which one would be correct?
     croak 'Mutually exclusive parameters "year" and "date" present'
