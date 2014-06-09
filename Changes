@@ -1,9 +1,23 @@
 Revision history for Perl extension DateTimeX::Fiscal::Fiscal5253
 
+2014-06-08 17:00  jim
+
+    Version 1.04
+    * Changed to automatic accessor generation
+    * Changed to automatic generation of period and week attribute methods
+    * Changed to FATAL warnings
+    * Made calling of code refs consistent with OO module style
+    * Better regex patterns for param validation
+    * Added more paramter edge testing for the contructor
+    * All test scripts have a plan now
+    * Added/imporved comments where needed
+    * Changed abstract in POD
+    * perltidy pass on all files
+
 2013-09-21 22:30  jim
 
-        * Corrected error that prevented proper parsing of mm/dd/yyyy format,
-          added test to confirm fix.
+    * Corrected error that prevented proper parsing of mm/dd/yyyy format,
+      added test to confirm fix.
 
 2012-08-11 05:46  jim
 
