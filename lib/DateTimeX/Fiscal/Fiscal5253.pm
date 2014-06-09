@@ -9,50 +9,52 @@ use Carp;
 use DateTime;
 use POSIX qw( strftime );
 
-my $pkg = __PACKAGE__;
-
-my @params = ( qw(
-    end_month
-    end_dow
-    end_type
-    leap_period
-    year
-    date
-) );
+my @params = (
+    qw(
+      end_month
+      end_dow
+      end_type
+      leap_period
+      year
+      date
+      )
+);
 
 my $defaults = {
-    end_month => 12,
-    end_dow => 6,
-    end_type => 'last',
+    end_month   => 12,
+    end_dow     => 6,
+    end_type    => 'last',
     leap_period => 'last',
 };
 
-my @periodmonths = ( qw(
-    January
-    February
-    March
-    April
-    May
-    June
-    July 
-    August
-    September
-    October
-    November
-    December
-) );
+my @periodmonths = (
+    qw(
+      January
+      February
+      March
+      April
+      May
+      June
+      July
+      August
+      September
+      October
+      November
+      December
+      )
+);
 
 # Automate creation of standard read-only accessors.
 my %attributes = map { $_ => 0 } @params;
 $attributes{start} = '_start_ymd';
-$attributes{end} = '_end_ymd';
+$attributes{end}   = '_end_ymd';
 $attributes{weeks} = '_weeks';
 
 # Define getters for each attribute.
 # This does NOT affect POD coverage testing.
-while ( my ( $attr, $fld ) = each( %attributes ) ) {
+while ( my ( $attr, $fld ) = each(%attributes) ) {
     my $key = $fld || $attr;
-    my $method = join( '::', __PACKAGE__ , ${attr} );
+    my $method = join( '::', __PACKAGE__, ${attr} );
     {
         no strict 'refs';
         *$method = sub {
@@ -60,7 +62,7 @@ while ( my ( $attr, $fld ) = each( %attributes ) ) {
             croak "Trying to set read-only accessor: $attr" if @_;
 
             return $self->{$key};
-        }
+          }
     }
 }
 
@@ -70,7 +72,7 @@ my $_valid_cal_style = sub {
 
     my $cal = lc($style);
     croak "Invalid calendar style specified: $cal"
-        unless $cal =~ /^(fiscal|restated|truncated)$/;
+      unless $cal =~ /^(fiscal|restated|truncated)$/;
 
     return $cal;
 };
@@ -80,16 +82,18 @@ my $_str2dt = sub {
     my $date = shift;
 
     # convert date param to DT object
-    my ($y,$m,$d);
+    my ( $y, $m, $d );
     if ( $date =~ m{^(\d{4})-(\d{1,2})-(\d{1,2})($|\D+)} ) {
         $y = $1, $m = $2, $d = $3;
-    } elsif ( $date =~ m{^(\d{1,2})/(\d{1,2})/(\d{4})($|\D+)} ) {
+    }
+    elsif ( $date =~ m{^(\d{1,2})/(\d{1,2})/(\d{4})($|\D+)} ) {
         $y = $3, $m = $1, $d = $2;
-    } else {
+    }
+    else {
         croak "Unable to parse date string: $date";
     }
     eval { $date = DateTime->new( year => $y, month => $m, day => $d ); }
-        or croak "Invalid date: $date";
+      or croak "Invalid date: $date";
 
     return $date;
 };
@@ -99,9 +103,9 @@ my $_use_dt = sub {
     my $year = shift;
 
     # test for 32- or 64-bit time values
-    my @tdata = gmtime(2147483651); # This is past the 32-bit rollover
+    my @tdata = gmtime(2147483651);    # This is past the 32-bit rollover
 
-    return ($tdata[5] != 138) && ($year < 1903 || $year > 2037);
+    return ( $tdata[5] != 138 ) && ( $year < 1903 || $year > 2037 );
 };
 
 # Build the week array once, then manipulate as needed.
@@ -111,14 +115,14 @@ my $_build_weeks = sub {
     my $self = shift;
 
     my $weeks = {};
-    if ( &{$_use_dt}($self->{year}) ) {
+    if ( &{$_use_dt}( $self->{year} ) ) {
         my $wstart = $self->{_start}->clone;
         my $wend = $self->{_start}->clone->add( days => 6 );
 
         for ( 1 .. $self->{_weeks} ) {
             $weeks->{$_} = {
                 start => $wstart->ymd,
-                end => $wend->ymd,
+                end   => $wend->ymd,
             };
 
             # skip the last step so the ending values are preserved
@@ -128,17 +132,18 @@ my $_build_weeks = sub {
             $wstart->add( days => 7 );
             $wend->add( days => 7 );
         }
-    } else {
-        my $daysecs = ( 60 * 60 * 24 );
+    }
+    else {
+        my $daysecs  = ( 60 * 60 * 24 );
         my $weeksecs = $daysecs * 7;
 
-        my $wstart = $self->{_start}->epoch + ($daysecs/2);
+        my $wstart = $self->{_start}->epoch + ( $daysecs / 2 );
         my $wend = $wstart + ( $daysecs * 6 );
 
         for ( 1 .. $self->{_weeks} ) {
             $weeks->{$_} = {
-                start => strftime('%Y-%m-%d',localtime($wstart)),
-                end => strftime('%Y-%m-%d',localtime($wend)),
+                start => strftime( '%Y-%m-%d', localtime($wstart) ),
+                end   => strftime( '%Y-%m-%d', localtime($wend) ),
             };
 
             # skip the last step so the ending values are preserved
@@ -146,7 +151,7 @@ my $_build_weeks = sub {
             last if $_ == $self->{_weeks};
 
             $wstart += $weeksecs;
-            $wend += $weeksecs;
+            $wend   += $weeksecs;
         }
     }
 
@@ -161,12 +166,12 @@ my $_build_periods = sub {
     my $style = shift || $self->{_style};
 
     # not strictly needed, but makes for easier to read code
-    my $restate = $style eq 'restated' ? 1 : 0;
+    my $restate  = $style eq 'restated'  ? 1 : 0;
     my $truncate = $style eq 'truncated' ? 1 : 0;
 
     # Avoid re-builds when possible.
-    return if $restate && defined($self->{_restated});
-    return if $truncate && defined($self->{_truncated});
+    return if $restate  && defined( $self->{_restated} );
+    return if $truncate && defined( $self->{_truncated} );
 
     # Disabled this for now, becomes problematic for various
     # methods such as "contains" in normal years.
@@ -177,77 +182,82 @@ my $_build_periods = sub {
     # This value is confusing only because it is 0-based unlike
     # the other month values.
     my $p1month = $self->{end_month} == 12 ? 0 : $self->{end_month};
-    my @pweeks = (4, 4, 5, 4, 4, 5, 4, 4, 5, 4, 4, 5);
+    my @pweeks = ( 4, 4, 5, 4, 4, 5, 4, 4, 5, 4, 4, 5 );
     my $wkcnt = 52;
 
     # a truncated structure ignores the last week in a 53 week year
     if ( $self->{_weeks} == 53 && !$truncate ) {
-        if ( $restate ) {
+        if ($restate) {
+
             # ignore the fist week and treat as any other 52 week year
             $pstart->add( days => 7 );
-        } elsif ( $self->{leap_period} eq 'first' ) {
+        }
+        elsif ( $self->{leap_period} eq 'first' ) {
             $pweeks[$p1month] += 1;
             $wkcnt = 53;
-        } else {
-            $pweeks[$self->{end_month} - 1] += 1;
+        }
+        else {
+            $pweeks[ $self->{end_month} - 1 ] += 1;
             $wkcnt = 53;
         }
     }
 
-    my $pdata  = {
+    my $pdata = {
         summary => {
-            style => $style,
-            year => $self->{year},
-            end_month => $self->{end_month},
-            end_dow => $self->{end_dow},
-            end_type => $self->{end_type},
+            style       => $style,
+            year        => $self->{year},
+            end_month   => $self->{end_month},
+            end_dow     => $self->{end_dow},
+            end_type    => $self->{end_type},
             leap_period => $self->{leap_period},
-            weeks => $wkcnt,
-            start => $pstart->ymd,
-            end => undef, # this is set after the cache is built
+            weeks       => $wkcnt,
+            start       => $pstart->ymd,
+            end => undef,    # this is set after the cache is built
         }
     };
 
-    my $wdata = {};
+    my $wdata  = {};
     my $wkcntr = 1;
-    for (0 .. 11) {
-        my $p_index = ($p1month + $_) % 12;
+    for ( 0 .. 11 ) {
+        my $p_index = ( $p1month + $_ ) % 12;
 
         my $pinfo = {
             period => $_ + 1,
-            weeks    => $pweeks[$p_index],
-            month    => $periodmonths[$p_index]
+            weeks  => $pweeks[$p_index],
+            month  => $periodmonths[$p_index]
         };
 
         for my $pw ( 1 .. $pweeks[$p_index] ) {
             my $wksrc = $restate ? $wkcntr + 1 : $wkcntr;
             my $winfo = {
-                week => $wkcntr,
-                period => $_ + 1,
+                week        => $wkcntr,
+                period      => $_ + 1,
                 period_week => $pw,
-                start => $self->{_weeks_raw}->{$wksrc}->{start},
-                end => $self->{_weeks_raw}->{$wksrc}->{end},
+                start       => $self->{_weeks_raw}->{$wksrc}->{start},
+                end         => $self->{_weeks_raw}->{$wksrc}->{end},
             };
             $pinfo->{start} = $winfo->{start} if $pw == 1;
-            $pinfo->{end} = $winfo->{end} if $pw == $pweeks[$p_index];
+            $pinfo->{end}   = $winfo->{end}   if $pw == $pweeks[$p_index];
             $wdata->{$wkcntr} = $winfo;
             $wkcntr++;
         }
 
-        $pdata->{$_ + 1} = $pinfo;
+        $pdata->{ $_ + 1 } = $pinfo;
     }
     $pdata->{summary}->{end} = $pdata->{12}->{end};
 
     if ( $self->{_weeks} == 52 ) {
+
         # Set style to 'fiscal' and assign the structure to all
         # three calendar types in a normal year to save time and space.
         $pdata->{summary}->{style} = 'fiscal';
         $self->{_fiscal} = $self->{_restated} = $self->{_truncated} = $pdata;
-        $self->{_fiscal_weeks} = $wdata;
-        $self->{_restated_weeks} = $wdata;
+        $self->{_fiscal_weeks}    = $wdata;
+        $self->{_restated_weeks}  = $wdata;
         $self->{_truncated_weeks} = $wdata;
-    } else {
-        $self->{"_$style"} = $pdata;
+    }
+    else {
+        $self->{"_$style"}         = $pdata;
         $self->{"_${style}_weeks"} = $wdata;
     }
 
@@ -257,26 +267,26 @@ my $_build_periods = sub {
 # The end day for a specified year is trivial to determine. In normal
 # accounting use, a fiscal year is named for the calendar year it ends in,
 # not the year it begins.
-sub _end5253
-{
+sub _end5253 {
     my $self = shift;
 
     my $dt = DateTime->last_day_of_month(
-        year => $self->{year},
-        month => $self->{end_month},
+        year      => $self->{year},
+        month     => $self->{end_month},
         time_zone => 'floating'
     );
 
     my $eom_day = $dt->day;
-    my $dt_dow = $dt->dow;
+    my $dt_dow  = $dt->dow;
 
     if ( $dt_dow > $self->{end_dow} ) {
         $dt->subtract( days => $dt_dow - $self->{end_dow} );
-    } elsif ( $dt_dow < $self->{end_dow} ) {
-        $dt->subtract( days => ($dt_dow + 7) - $self->{end_dow} );
+    }
+    elsif ( $dt_dow < $self->{end_dow} ) {
+        $dt->subtract( days => ( $dt_dow + 7 ) - $self->{end_dow} );
     }
     $dt->add( weeks => 1 )
-        if $self->{end_type} eq 'closest' && $eom_day - $dt->day > 3;
+      if $self->{end_type} eq 'closest' && $eom_day - $dt->day > 3;
 
     return $dt;
 }
@@ -285,8 +295,7 @@ sub _end5253
 # the last day of the preceding year since the year is defined by
 # the ending day and add 1 day to that. This avoids calendar year and month
 # boundary issues.
-sub _start5253
-{
+sub _start5253 {
     my $self = shift;
 
     # do not assume it is safe to change the year attribute
@@ -297,8 +306,7 @@ sub _start5253
 }
 
 # Determine the correct fiscal year for any given date
-sub _find5253
-{
+sub _find5253 {
     my $self = shift;
 
     my $y1 = $self->{date}->year;
@@ -316,77 +324,80 @@ sub _find5253
 }
 
 # Duh
-sub new
-{
+sub new {
     my $proto = shift;
-    my %args = @_;
+    my %args  = @_;
 
     # normalize end_type arg
-    $args{end_type} = lc($args{end_type}) if $args{end_type};
+    $args{end_type} = lc( $args{end_type} ) if $args{end_type};
+
     # normalize leap_period arg
-    $args{leap_period} = lc($args{leap_period}) if $args{leap_period};
+    $args{leap_period} = lc( $args{leap_period} ) if $args{leap_period};
 
     # do basic validation and set controlling params as needed
     # the default is to end on the last Saturday of December
-    foreach ( keys(%{$defaults}) ) {
-        $args{$_} = $defaults->{$_} if !defined($args{$_});
+    foreach ( keys( %{$defaults} ) ) {
+        $args{$_} = $defaults->{$_} if !defined( $args{$_} );
     }
 
     croak "Invalid value for param end_type: $args{end_type}"
-        unless $args{end_type} =~ /^(?:last|closest)$/;
+      unless $args{end_type} =~ /^(?:last|closest)$/;
     croak "Invalid value for param end_month: $args{end_month}"
-        unless $args{end_month} =~ /^(?:1[0-2]|[1-9])\z/;
+      unless $args{end_month} =~ /^(?:1[0-2]|[1-9])\z/;
     croak "Invalid value for param end_dow: $args{end_dow}"
-        unless $args{end_dow} =~ /^[1-7]\z/;
+      unless $args{end_dow} =~ /^[1-7]\z/;
     croak "Invalid value for param leap_period: $args{leap_period}"
-        unless $args{leap_period} =~ /^(?:first|last)$/;
+      unless $args{leap_period} =~ /^(?:first|last)$/;
 
     # which one would be correct?
     croak 'Mutually exclusive parameters "year" and "date" present'
-        if $args{year} && $args{date};
+      if $args{year} && $args{date};
 
     croak 'Object in "date" parameter is not a member of DateTime'
-        if ref($args{date}) && !$args{date}->isa('DateTime');
+      if ref( $args{date} ) && !$args{date}->isa('DateTime');
 
-    if ( ref($args{date}) ) {
+    if ( ref( $args{date} ) ) {
         $args{date} = $args{date}->clone;
-    } elsif ( $args{date} ) {
+    }
+    elsif ( $args{date} ) {
+
         # _str2dt will croak on error
-        $args{date} = &{$_str2dt}($args{date});
-    } elsif ( !$args{year} ) {
+        $args{date} = &{$_str2dt}( $args{date} );
+    }
+    elsif ( !$args{year} ) {
         $args{date} = DateTime->today();
     }
 
     # All parameters have been validated, make the object.
     my $class = ref($proto) || $proto;
     my $self = bless {
-        _style => 'fiscal',
-        _fiscal => undef,
-        _restated => undef,
+        _style     => 'fiscal',
+        _fiscal    => undef,
+        _restated  => undef,
         _truncated => undef,
     }, $class;
-    foreach ( @params ) {
-        $self->{$_} = delete($args{$_});
-    };
+    foreach (@params) {
+        $self->{$_} = delete( $args{$_} );
+    }
 
     # Be sure there are none left over.
-    if ( scalar(keys(%args)) ) {
-        croak 'Unknown parameter(s): '.join(',',keys(%args));
+    if ( scalar( keys(%args) ) ) {
+        croak 'Unknown parameter(s): ' . join( ',', keys(%args) );
     }
 
     # Set the year from the data attribute if that was given.
     if ( $self->{date} ) {
-        $self->{date}->truncate( to => 'day' )->set_time_zone( 'floating' );
+        $self->{date}->truncate( to => 'day' )->set_time_zone('floating');
         $self->{year} = _find5253($self);
     }
 
-    $self->{_start} = $self->_start5253;
+    $self->{_start}     = $self->_start5253;
     $self->{_start_ymd} = $self->{_start}->ymd;
-    $self->{_end} = $self->_end5253;
-    $self->{_end_ymd} = $self->{_end}->ymd;
+    $self->{_end}       = $self->_end5253;
+    $self->{_end_ymd}   = $self->{_end}->ymd;
 
     $self->{_weeks} =
-        $self->{_start}->clone->add( days => 367 ) > $self->{_end} ? 52 : 53;
+      $self->{_start}->clone->add( days => 367 ) > $self->{_end} ? 52 : 53;
 
     $self->$_build_weeks;
     $self->$_build_periods('fiscal');
@@ -399,18 +410,16 @@ sub new
     return $self;
 }
 
-sub has_leap_week
-{
+sub has_leap_week {
     my $self = shift;
 
-    return ($self->{_weeks} == 53 ? 1 : 0);
+    return ( $self->{_weeks} == 53 ? 1 : 0 );
 }
 
-sub style
-{
+sub style {
     my $self = shift;
 
-    if ( @_ ) {
+    if (@_) {
         croak 'Too many arguments' if @_ > 1;
         $self->{_style} = &{$_valid_cal_style}(shift);
     }
@@ -419,43 +428,41 @@ sub style
 }
 
 # return summary data about a calendar.
-sub summary
-{
+sub summary {
     my $self = shift;
     my %args = @_ == 1 ? ( style => shift ) : @_;
 
     $args{style} ||= $self->{_style};
-    croak 'Unknown parameter present' if scalar(keys(%args)) > 1;
+    croak 'Unknown parameter present' if scalar( keys(%args) ) > 1;
 
-    my $cal = &{$_valid_cal_style}($args{style});
+    my $cal = &{$_valid_cal_style}( $args{style} );
 
     my %cdata;
-    for ( qw( style year start end weeks ) ) {
+    for (qw( style year start end weeks )) {
         $cdata{$_} = $self->{"_$cal"}->{summary}->{$_};
     }
 
     return wantarray ? %cdata : \%cdata;
 }
 
-sub contains
-{
+sub contains {
     my $self = shift;
     my %args = @_ == 1 ? ( date => shift ) : @_;
 
-    $args{date} ||= 'today';
+    $args{date}  ||= 'today';
     $args{style} ||= $self->{_style};
 
-    croak 'Unknown parameter present' if scalar(keys(%args)) > 2;
+    croak 'Unknown parameter present' if scalar( keys(%args) ) > 2;
 
-    my $cal = &{$_valid_cal_style}($args{style});
+    my $cal = &{$_valid_cal_style}( $args{style} );
 
     # Yes, a DT object set to "today" would work, but this is faster.
     # NOTE! This will break in 2038 on 32-bit builds!
-    $args{date} = strftime("%Y-%m-%d",localtime())
-       if  ( lc($args{date}) eq 'today' );
+    $args{date} = strftime( "%Y-%m-%d", localtime() )
+      if ( lc( $args{date} ) eq 'today' );
 
     # _str2dt will croak on error
-    my $date = &{$_str2dt}($args{date})->ymd;
+    my $date = &{$_str2dt}( $args{date} )->ymd;
 
     my $whash = $self->{"_${cal}_weeks"};
     my $cdata = $self->{"_$cal"}->{summary};
@@ -468,7 +475,8 @@ sub contains
     # and optionally, a structure with period and week number.
 
     my $w;
-    for ( $w = 1; $date gt $whash->{$w}->{end}; $w++ ) {
+    for ( $w = 1 ; $date gt $whash->{$w}->{end} ; $w++ ) {
+
         # this should NEVER fire!
         croak 'FATAL ERROR! RAN OUT OF WEEKS' if $w > $cdata->{weeks};
     }
@@ -485,58 +493,53 @@ my $_period_attr = sub {
     my %args = @_ == 1 ? ( period => shift ) : @_;
 
     $args{period} ||= 0;
-    $args{style} ||= $self->{_style};
+    $args{style}  ||= $self->{_style};
 
-    croak 'Unknown parameter present' if scalar(keys(%args)) > 2;
+    croak 'Unknown parameter present' if scalar( keys(%args) ) > 2;
 
-    my $cal = &{$_valid_cal_style}($args{style});
+    my $cal = &{$_valid_cal_style}( $args{style} );
 
     if ( $args{period} < 1 || $args{period} > 12 ) {
         croak "Invalid period specified: $args{period}";
     }
 
     # return a copy so the guts hopefully can't be changed
-    my %phash = %{$self->{"_$cal"}->{$args{period}}};
+    my %phash = %{ $self->{"_$cal"}->{ $args{period} } };
 
     return $attr eq 'period' ? %phash : $phash{$attr};
 };
 
-sub period
-{
-    my $self   = shift;
+sub period {
+    my $self = shift;
     my %args = @_ == 1 ? ( period => shift ) : @_;
 
-    my %phash =  $self->$_period_attr( 'period',%args );
+    my %phash = $self->$_period_attr( 'period', %args );
 
     return wantarray ? %phash : \%phash;
 }
 
-sub period_month
-{
+sub period_month {
     my $self = shift;
 
-    return $self->$_period_attr( 'month',@_ );
+    return $self->$_period_attr( 'month', @_ );
 }
 
-sub period_start
-{
+sub period_start {
     my $self = shift;
 
-    return $self->$_period_attr( 'start',@_ );
+    return $self->$_period_attr( 'start', @_ );
 }
 
-sub period_end
-{
+sub period_end {
     my $self = shift;
 
-    return $self->$_period_attr( 'end',@_ );
+    return $self->$_period_attr( 'end', @_ );
 }
 
-sub period_weeks
-{
+sub period_weeks {
     my $self = shift;
 
-    return $self->$_period_attr( 'weeks',@_ );
+    return $self->$_period_attr( 'weeks', @_ );
 }
 
 # Utiliy routine, hidden from public use, to prevent duplicate code in
@@ -546,60 +549,56 @@ my $_week_attr = sub {
     my $attr = shift;
     my %args = @_ == 1 ? ( week => shift ) : @_;
 
-    $args{week} ||= 0;
+    $args{week}  ||= 0;
     $args{style} ||= $self->{_style};
 
-    croak 'Unknown parameter present' if scalar(keys(%args)) > 2;
+    croak 'Unknown parameter present' if scalar( keys(%args) ) > 2;
 
-    my $cal = &{$_valid_cal_style}($args{style});
+    my $cal = &{$_valid_cal_style}( $args{style} );
 
-    if ( $args{week} < 1
-        || $args{week} > $self->{"_$cal"}->{summary}->{weeks} ) {
+    if (   $args{week} < 1
+        || $args{week} > $self->{"_$cal"}->{summary}->{weeks} )
+    {
         croak "Invalid week specified: $args{week}";
     }
 
     # make a copy so the outside (hopefully) can't change the guts
-    my %whash = %{$self->{"_${cal}_weeks"}->{$args{week}}};
+    my %whash = %{ $self->{"_${cal}_weeks"}->{ $args{week} } };
 
     return $attr eq 'week' ? %whash : $whash{$attr};
 };
 
-sub week
-{
-    my $self   = shift;
+sub week {
+    my $self = shift;
     my %args = @_ == 1 ? ( week => shift ) : @_;
 
-    my %whash =  $self->$_week_attr( 'week',%args );
+    my %whash = $self->$_week_attr( 'week', %args );
 
     return wantarray ? %whash : \%whash;
 }
 
-sub week_period
-{
+sub week_period {
     my $self = shift;
 
-    return $self->$_week_attr( 'period',@_ );
+    return $self->$_week_attr( 'period', @_ );
 }
 
-sub week_period_week
-{
+sub week_period_week {
     my $self = shift;
 
-    return $self->$_week_attr( 'period_week',@_ );
+    return $self->$_week_attr( 'period_week', @_ );
 }
 
-sub week_start
-{
+sub week_start {
     my $self = shift;
 
-    return $self->$_week_attr( 'start',@_ );
+    return $self->$_week_attr( 'start', @_ );
 }
 
-sub week_end
-{
+sub week_end {
     my $self = shift;
 
-    return $self->$_week_attr( 'end',@_ );
+    return $self->$_week_attr( 'end', @_ );
 }
 
 1;
