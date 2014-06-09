@@ -10,69 +10,72 @@ my $class = 'DateTimeX::Fiscal::Fiscal5253';
 # for the object other than the year parameter. Another script
 # will perform those tests.
 
-# Get an object for testing with. Use values different from defaults
-# to ensure the accessors are fetching real information.
+# Known params to test with.
 my %params = (
-    year => 2014,
-    end_month => 1,
-    end_dow => 1,
-    end_type => 'closest',
+    year        => 2014,
+    end_month   => 1,
+    end_dow     => 1,
+    end_type    => 'closest',
     leap_period => 'first'
 );
-
-my $fc = $class->new( %params );
 
 # Preparing an array of test cases makes it slightly easier, IMHO, to
 # see what cases are being covered.
 my @accessors = (
     {
         accessor => 'year',
-        expect => $params{year},
+        expect   => $params{year},
     },
     {
         accessor => 'end_month',
-        expect => $params{end_month},
+        expect   => $params{end_month},
     },
     {
         accessor => 'end_dow',
-        expect => $params{end_dow},
+        expect   => $params{end_dow},
     },
     {
         accessor => 'end_type',
-        expect => $params{end_type},
+        expect   => $params{end_type},
     },
     {
         accessor => 'leap_period',
-        expect => $params{leap_period},
+        expect   => $params{leap_period},
     },
     {
         accessor => 'start',
-        expect => '2013-01-29',
+        expect   => '2013-01-29',
     },
     {
         accessor => 'end',
-        expect => '2014-02-03',
+        expect   => '2014-02-03',
     },
     {
         accessor => 'weeks',
-        expect => '53',
+        expect   => '53',
     },
 );
 
+# Four times through the array
+my $testplan = @accessors * 4;
+plan( tests => $testplan );
+
+# Get an object for testing with. Use values different from defaults
+# to ensure the accessors are fetching real information.
+my $fc = $class->new(%params);
+
 # Test fetching the values. This tests that the accessors retrieve
 # known values from the proper elements in the object.
-foreach ( @accessors ) {
+foreach (@accessors) {
     my $accessor = $_->{accessor};
-    ok($fc->$accessor() eq $_->{expect},"get $accessor");
+    cmp_ok( $fc->$accessor(), 'eq', $_->{expect}, "get $accessor" );
 }
 
 # Now test that trying to change a parameter value will emit a "croak"
-foreach ( @accessors ) {
+foreach (@accessors) {
     my $accessor = $_->{accessor};
-    eval {
-        my $foo = $fc->$accessor($_->{expect});
-    };
-    like($@,qr/$accessor/,"blocked setting $accessor");
+    eval { my $foo = $fc->$accessor( $_->{expect} ); };
+    like( $@, qr/$accessor/, "blocked setting $accessor" );
 }
 
 # Now do it all over again using the Empty::Fiscal5253 class to be sure
@@ -80,18 +83,17 @@ foreach ( @accessors ) {
 # constructor would probably suffice, but why not be sure?
 
 $class = 'Empty::Fiscal5253';
+$fc    = $class->new(%params);
 
-foreach ( @accessors ) {
+foreach (@accessors) {
     my $accessor = $_->{accessor};
-    ok($fc->$accessor() eq $_->{expect},"get $accessor");
+    ok( $fc->$accessor() eq $_->{expect}, "get $accessor" );
 }
 
-foreach ( @accessors ) {
+foreach (@accessors) {
     my $accessor = $_->{accessor};
-    eval {
-        my $foo = $fc->$accessor($_->{expect});
-    };
-    like($@,qr/read\-only param/,"blocked setting $accessor");
+    eval { my $foo = $fc->$accessor( $_->{expect} ); };
+    like( $@, qr/read\-only accessor/, "blocked setting $accessor" );
 }
 
 done_testing();

@@ -1,9 +1,14 @@
-use Test::More;
+use strict;
+use warnings;
 
-eval "use Test::Pod::Coverage";
-plan skip_all => "Test::Pod::Coverage required for testing coverage" if $@;
+use Test::More tests => 1;
 
-all_pod_coverage_ok();
+subtest 'pod_coverage' => sub {
+    eval "use Test::Pod::Coverage";
+    plan skip_all => "Test::Pod::Coverage required for testing coverage" if $@;
+
+    all_pod_coverage_ok();
+};
 
 done_testing();
 
