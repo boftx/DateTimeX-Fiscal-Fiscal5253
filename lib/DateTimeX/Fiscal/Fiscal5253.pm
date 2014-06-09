@@ -509,6 +509,19 @@ my $_period_attr = sub {
     return $attr eq 'period' ? %phash : $phash{$attr};
 };
 
+# Automate creating period attribute mehtods
+for my $p_attr (qw( month start end weeks )) {
+    my $method = join( '::', __PACKAGE__, "period_${p_attr}" );
+    {
+        no strict 'refs';
+        *$method = sub {
+            my $self = shift;
+
+            return $self->$_period_attr( $p_attr, @_ );
+          }
+    }
+}
+
 sub period {
     my $self = shift;
     my %args = @_ == 1 ? ( period => shift ) : @_;
@@ -516,30 +529,6 @@ sub period {
     my %phash = $self->$_period_attr( 'period', %args );
 
     return wantarray ? %phash : \%phash;
-}
-
-sub period_month {
-    my $self = shift;
-
-    return $self->$_period_attr( 'month', @_ );
-}
-
-sub period_start {
-    my $self = shift;
-
-    return $self->$_period_attr( 'start', @_ );
-}
-
-sub period_end {
-    my $self = shift;
-
-    return $self->$_period_attr( 'end', @_ );
-}
-
-sub period_weeks {
-    my $self = shift;
-
-    return $self->$_period_attr( 'weeks', @_ );
 }
 
 # Utiliy routine, hidden from public use, to prevent duplicate code in
@@ -577,28 +566,17 @@ sub week {
     return wantarray ? %whash : \%whash;
 }
 
-sub week_period {
-    my $self = shift;
+# Automate creating week attribute mehtods
+for my $p_attr (qw( period period_week start end )) {
+    my $method = join( '::', __PACKAGE__, "week_${p_attr}" );
+    {
+        no strict 'refs';
+        *$method = sub {
+            my $self = shift;
 
-    return $self->$_week_attr( 'period', @_ );
-}
-
-sub week_period_week {
-    my $self = shift;
-
-    return $self->$_week_attr( 'period_week', @_ );
-}
-
-sub week_start {
-    my $self = shift;
-
-    return $self->$_week_attr( 'start', @_ );
-}
-
-sub week_end {
-    my $self = shift;
-
-    return $self->$_week_attr( 'end', @_ );
+            return $self->$_week_attr( $p_attr, @_ );
+          }
+    }
 }
 
 1;
