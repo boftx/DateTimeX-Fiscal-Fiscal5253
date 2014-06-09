@@ -1,15 +1,13 @@
 package DateTimeX::Fiscal::Fiscal5253;
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 our $VERSION = '1.04';
 
 use Carp;
 use DateTime;
 use POSIX qw( strftime );
-
-use Data::Dumper;
 
 my $pkg = __PACKAGE__;
 
@@ -44,6 +42,28 @@ my @periodmonths = ( qw(
     December
 ) );
 
+# Automate creation of standard read-only accessors.
+my %attributes = map { $_ => 0 } @params;
+$attributes{start} = '_start_ymd';
+$attributes{end} = '_end_ymd';
+$attributes{weeks} = '_weeks';
+
+# Define getters for each attribute.
+# This does NOT affect POD coverage testing.
+while ( my ( $attr, $fld ) = each( %attributes ) ) {
+    my $key = $fld || $attr;
+    my $method = join( '::', __PACKAGE__ , ${attr} );
+    {
+        no strict 'refs';
+        *$method = sub {
+            my $self = shift;
+            croak "Trying to set read-only accessor: $attr" if @_;
+
+            return $self->{$key};
+        }
+    }
+}
+
 # Utility function to validate values supplied as a calendar style.
 my $_valid_cal_style = sub {
     my $style = shift || 'fiscal';
@@ -61,9 +81,9 @@ my $_str2dt = sub {
 
     # convert date param to DT object
     my ($y,$m,$d);
-    if ( $date =~ m/(^\d{4})\-(\d{1,2})\-(\d{1,2})($|\D+)/ ) {
+    if ( $date =~ m{^(\d{4})-(\d{1,2})-(\d{1,2})($|\D+)} ) {
         $y = $1, $m = $2, $d = $3;
-    } elsif ( $date =~ m/^(\d{1,2})\/(\d{1,2})\/(\d{4})($|\D+)/ ) {
+    } elsif ( $date =~ m{^(\d{1,2})/(\d{1,2})/(\d{4})($|\D+)} ) {
         $y = $3, $m = $1, $d = $2;
     } else {
         croak "Unable to parse date string: $date";
@@ -161,7 +181,7 @@ my $_build_periods = sub {
     my $wkcnt = 52;
 
     # a truncated structure ignores the last week in a 53 week year
-    if ( $self->has_leap_week && !$truncate ) {
+    if ( $self->{_weeks} == 53 && !$truncate ) {
         if ( $restate ) {
             # ignore the fist week and treat as any other 52 week year
             $pstart->add( days => 7 );
@@ -239,24 +259,24 @@ my $_build_periods = sub {
 # not the year it begins.
 sub _end5253
 {
-    my $args = shift;
+    my $self = shift;
 
     my $dt = DateTime->last_day_of_month(
-        year => $args->{year},
-        month => $args->{end_month},
+        year => $self->{year},
+        month => $self->{end_month},
         time_zone => 'floating'
     );
 
     my $eom_day = $dt->day;
     my $dt_dow = $dt->dow;
 
-    if ( $dt_dow > $args->{end_dow} ) {
-        $dt->subtract( days => $dt_dow - $args->{end_dow} );
-    } elsif ( $dt_dow < $args->{end_dow} ) {
-        $dt->subtract( days => ($dt_dow + 7) - $args->{end_dow} );
+    if ( $dt_dow > $self->{end_dow} ) {
+        $dt->subtract( days => $dt_dow - $self->{end_dow} );
+    } elsif ( $dt_dow < $self->{end_dow} ) {
+        $dt->subtract( days => ($dt_dow + 7) - $self->{end_dow} );
     }
     $dt->add( weeks => 1 )
-        if $args->{end_type} eq 'closest' && $eom_day - $dt->day > 3;
+        if $self->{end_type} eq 'closest' && $eom_day - $dt->day > 3;
 
     return $dt;
 }
@@ -267,11 +287,11 @@ sub _end5253
 # boundary issues.
 sub _start5253
 {
-    my $args = shift;
+    my $self = shift;
 
-    $args->{year} -= 1;
-    my $dt = _end5253($args)->add( days => 1 );
-    $args->{year} += 1; # don't forget to do this!
+    # do not assume it is safe to change the year attribute
+    local $self->{year} = $self->{year} - 1;
+    my $dt = $self->_end5253->add( days => 1 );
 
     return $dt;
 }
@@ -279,18 +299,18 @@ sub _start5253
 # Determine the correct fiscal year for any given date
 sub _find5253
 {
-    my $args = shift;
+    my $self = shift;
 
-    my $y1 = $args->{date}->year;
+    my $y1 = $self->{date}->year;
 
     # do not assume it is safe to change the year attribute
-    local $args->{year} = $y1;
+    local $self->{year} = $y1;
 
-    my $e1 = _end5253($args);
-    return $y1 + 1 if $e1 < $args->{date};
+    my $e1 = $self->_end5253;
+    return $y1 + 1 if $e1 < $self->{date};
 
-    my $s1 = _start5253($args);
-    return $y1 - 1 if $s1 > $args->{date};
+    my $s1 = $self->_start5253;
+    return $y1 - 1 if $s1 > $self->{date};
 
     return $y1;
 }
@@ -315,9 +335,9 @@ sub new
     croak "Invalid value for param end_type: $args{end_type}"
         unless $args{end_type} =~ /^(?:last|closest)$/;
     croak "Invalid value for param end_month: $args{end_month}"
-        if $args{end_month} < 1 || $args{end_month} > 12;
+        unless $args{end_month} =~ /^(?:1[0-2]|[1-9])\z/;
     croak "Invalid value for param end_dow: $args{end_dow}"
-        if $args{end_dow} < 1 || $args{end_dow} > 7;
+        unless $args{end_dow} =~ /^[1-7]\z/;
     croak "Invalid value for param leap_period: $args{leap_period}"
         unless $args{leap_period} =~ /^(?:first|last)$/;
 
@@ -337,6 +357,7 @@ sub new
         $args{date} = DateTime->today();
     }
 
+    # All parameters have been validated, make the object.
     my $class = ref($proto) || $proto;
     my $self = bless {
         _style => 'fiscal',
@@ -347,103 +368,35 @@ sub new
     foreach ( @params ) {
         $self->{$_} = delete($args{$_});
     };
+
+    # Be sure there are none left over.
     if ( scalar(keys(%args)) ) {
         croak 'Unknown parameter(s): '.join(',',keys(%args));
     }
 
+    # Set the year from the data attribute if that was given.
     if ( $self->{date} ) {
         $self->{date}->truncate( to => 'day' )->set_time_zone( 'floating' );
         $self->{year} = _find5253($self);
     }
-    $self->{_start} = _start5253($self);
+
+    $self->{_start} = $self->_start5253;
     $self->{_start_ymd} = $self->{_start}->ymd;
-    $self->{_end} = _end5253($self);
+    $self->{_end} = $self->_end5253;
     $self->{_end_ymd} = $self->{_end}->ymd;
 
     $self->{_weeks} =
         $self->{_start}->clone->add( days => 367 ) > $self->{_end} ? 52 : 53;
 
-    &{$_build_weeks}($self);
-    &{$_build_periods}($self,'fiscal');
+    $self->$_build_weeks;
+    $self->$_build_periods('fiscal');
 
-    if ( $self->has_leap_week ) {
-        &{$_build_periods}($self,'restated');
-        &{$_build_periods}($self,'truncated');
+    if ( $self->{_weeks} == 53 ) {
+        $self->$_build_periods('restated');
+        $self->$_build_periods('truncated');
     }
 
     return $self;
-}
-
-sub year
-{
-    my $self = shift;
-
-    croak 'FATAL ERROR: Attempt to set read-only param year' if @_;
-
-    return $self->{year};
-}
-
-sub end_month
-{
-    my $self = shift;
-
-    croak 'FATAL ERROR: Attempt to set read-only param end_month' if @_;
-
-    return $self->{end_month};
-}
-
-sub end_dow
-{
-    my $self = shift;
-
-    croak 'FATAL ERROR: Attempt to set read-only param end_dow' if @_;
-
-    return $self->{end_dow};
-}
-
-sub end_type
-{
-    my $self = shift;
-
-    croak 'FATAL ERROR: Attempt to set read-only param end_type' if @_;
-
-    return $self->{end_type};
-}
-
-sub leap_period
-{
-    my $self = shift;
-
-    croak 'FATAL ERROR: Attempt to set read-only param leap_period' if @_;
-
-    return $self->{leap_period};
-}
-
-sub start
-{
-    my $self = shift;
-
-    croak 'FATAL ERROR: Attempt to set read-only param _start_ymd' if @_;
-
-    return $self->{_start_ymd};
-}
-
-sub end
-{
-    my $self = shift;
-
-    croak 'FATAL ERROR: Attempt to set read-only param _end_ymd' if @_;
-
-    return $self->{_end_ymd};
-}
-
-sub weeks
-{
-    my $self = shift;
-
-    croak 'FATAL ERROR: Attempt to set read-only param _weeks' if @_;
-
-    return $self->{_weeks};
 }
 
 sub has_leap_week
@@ -496,8 +449,8 @@ sub contains
 
     my $cal = &{$_valid_cal_style}($args{style});
 
-    # Yes, a DT oject set to "today" would work, but this is faster.
-    # NOTE! This will break in 2038 on 32bit builds!
+    # Yes, a DT object set to "today" would work, but this is faster.
+    # NOTE! This will break in 2038 on 32-bit builds!
     $args{date} = strftime("%Y-%m-%d",localtime())
        if  ( lc($args{date}) eq 'today' );
 
@@ -553,7 +506,7 @@ sub period
     my $self   = shift;
     my %args = @_ == 1 ? ( period => shift ) : @_;
 
-    my %phash =  &{$_period_attr}( $self,'period',%args );
+    my %phash =  $self->$_period_attr( 'period',%args );
 
     return wantarray ? %phash : \%phash;
 }
@@ -562,28 +515,28 @@ sub period_month
 {
     my $self = shift;
 
-    return &{$_period_attr}( $self,'month',@_ );
+    return $self->$_period_attr( 'month',@_ );
 }
 
 sub period_start
 {
     my $self = shift;
 
-    return &{$_period_attr}( $self,'start',@_ );
+    return $self->$_period_attr( 'start',@_ );
 }
 
 sub period_end
 {
     my $self = shift;
 
-    return &{$_period_attr}( $self,'end',@_ );
+    return $self->$_period_attr( 'end',@_ );
 }
 
 sub period_weeks
 {
     my $self = shift;
 
-    return &{$_period_attr}( $self,'weeks',@_ );
+    return $self->$_period_attr( 'weeks',@_ );
 }
 
 # Utiliy routine, hidden from public use, to prevent duplicate code in
@@ -616,7 +569,7 @@ sub week
     my $self   = shift;
     my %args = @_ == 1 ? ( week => shift ) : @_;
 
-    my %whash =  &{$_week_attr}( $self,'week',%args );
+    my %whash =  $self->$_week_attr( 'week',%args );
 
     return wantarray ? %whash : \%whash;
 }
@@ -625,37 +578,39 @@ sub week_period
 {
     my $self = shift;
 
-    return &{$_week_attr}( $self,'period',@_ );
+    return $self->$_week_attr( 'period',@_ );
 }
 
 sub week_period_week
 {
     my $self = shift;
 
-    return &{$_week_attr}( $self,'period_week',@_ );
+    return $self->$_week_attr( 'period_week',@_ );
 }
 
 sub week_start
 {
     my $self = shift;
 
-    return &{$_week_attr}( $self,'start',@_ );
+    return $self->$_week_attr( 'start',@_ );
 }
 
 sub week_end
 {
     my $self = shift;
 
-    return &{$_week_attr}( $self,'end',@_ );
+    return $self->$_week_attr( 'end',@_ );
 }
 
 1;
 
 __END__
 
+=pod
+
 =head1 NAME
 
-DateTimeX::Fiscal::Fiscal5253 - Perl extension for DateTime
+DateTimeX::Fiscal::Fiscal5253 - Create fiscal 52/53 week calendars
 
 =head1 SYNOPSIS
 
