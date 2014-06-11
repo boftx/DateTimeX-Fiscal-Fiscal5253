@@ -1,5 +1,10 @@
 Revision history for Perl extension DateTimeX::Fiscal::Fiscal5253
 
+2014-06-10 23:30  jim
+    Version 1.05
+    * Added code to deal with what seems to be a bug in gmtime() in
+      Perl 5.10.0 built on a Win32 v5.x platform.
+
 2014-06-08 17:00  jim
 
     Version 1.04

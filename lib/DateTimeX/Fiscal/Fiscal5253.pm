@@ -3,7 +3,7 @@ package DateTimeX::Fiscal::Fiscal5253;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '1.04';
+our $VERSION = '1.05';
 
 use Carp;
 use DateTime;
@@ -102,10 +102,17 @@ my $_str2dt = sub {
 my $_use_dt = sub {
     my $year = shift;
 
-    # test for 32- or 64-bit time values
-    my @tdata = gmtime(2147483651);    # This is past the 32-bit rollover
+    # test for 32- or 64-bit time values. This is in an eval because there
+    # is apparently a bug in Perl 5.10.0 on a Win32 v5 build that causes
+    # gmtime to return undefs when the epoch rolls over. This of course
+    # will throw an uninitialized error with "use warnings FATAL => 'all'"
+    # in effect.
+    my $is_32 = eval {
+        my @tdata = gmtime(2147483651);    # This is 4 sec past the rollover
+        return ( $tdata[5] == 138 );
+    };
 
-    return ( $tdata[5] != 138 ) && ( $year < 1903 || $year > 2037 );
+    return $is_32 && ( $year < 1903 || $year > 2037 );
 };
 
 # Build the week array once, then manipulate as needed.
