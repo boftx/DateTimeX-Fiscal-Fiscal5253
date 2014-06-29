@@ -1,5 +1,16 @@
 Revision history for Perl extension DateTimeX::Fiscal::Fiscal5253
 
+2014-06-29 15:30  jim
+    Version 1.06
+    * Set minimum Perl version to 5.8.8 in Makefile.PL
+    * Removed unwanted accessor for "date" from automatic generation code.
+    * "contains" now returns "undef" instead of "0" if the date isn't in
+      the specified calendar.
+    * Changed from using "lc()" to "tr/A-Z/a-z/" for case conversion.
+    * Cleaned up code to generate week attributes.
+    * Corrected spelling mistakes, updated POD for "containers".
+    * Updated Makefile.PL to use more modern conventions.
+
 2014-06-10 23:30  jim
     Version 1.05
     * Added code to deal with what seems to be a bug in gmtime() in
