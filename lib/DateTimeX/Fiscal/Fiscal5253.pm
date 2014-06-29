@@ -3,7 +3,7 @@ package DateTimeX::Fiscal::Fiscal5253;
 use strict;
 use warnings FATAL => 'all';
 
-our $VERSION = '1.05';
+our $VERSION = '1.06';
 
 use Carp;
 use DateTime;
@@ -50,6 +50,9 @@ $attributes{start} = '_start_ymd';
 $attributes{end}   = '_end_ymd';
 $attributes{weeks} = '_weeks';
 
+# This one does not get an accessor.
+delete( $attributes{date} );
+
 # Define getters for each attribute.
 # This does NOT affect POD coverage testing.
 while ( my ( $attr, $fld ) = each(%attributes) ) {
@@ -70,14 +73,14 @@ while ( my ( $attr, $fld ) = each(%attributes) ) {
 my $_valid_cal_style = sub {
     my $style = shift || 'fiscal';
 
-    my $cal = lc($style);
-    croak "Invalid calendar style specified: $cal"
-      unless $cal =~ /^(fiscal|restated|truncated)$/;
+    $style =~ tr/A-Z/a-z/;
+    croak "Invalid calendar style specified: $style"
+      unless $style =~ /^(fiscal|restated|truncated)$/;
 
-    return $cal;
+    return $style;
 };
 
-# Utility function to covert a date string to a DT object
+# Utility function to convert a date string to a DT object
 my $_str2dt = sub {
     my $date = shift;
 
@@ -336,10 +339,10 @@ sub new {
     my %args  = @_;
 
     # normalize end_type arg
-    $args{end_type} = lc( $args{end_type} ) if $args{end_type};
+    $args{end_type} =~ tr/A-Z/a-z/ if $args{end_type};
 
     # normalize leap_period arg
-    $args{leap_period} = lc( $args{leap_period} ) if $args{leap_period};
+    $args{leap_period} =~ tr/A-Z/a-z/ if $args{leap_period};
 
     # do basic validation and set controlling params as needed
     # the default is to end on the last Saturday of December
@@ -475,8 +478,8 @@ sub contains {
     my $cdata = $self->{"_$cal"}->{summary};
 
     # it is NOT an error if the date isn't in the calendar,
-    # so return 0 to differentiate this from an error condition
-    return 0 if $date lt $cdata->{start} || $date gt $cdata->{end};
+    # so return undef to differentiate this from an error condition
+    return if $date lt $cdata->{start} || $date gt $cdata->{end};
 
     # since the date is in the calendar, let's return it's week,
     # and optionally, a structure with period and week number.
@@ -558,7 +561,7 @@ my $_week_attr = sub {
         croak "Invalid week specified: $args{week}";
     }
 
-    # make a copy so the outside (hopefully) can't change the guts
+    # make a copy so the outside (hopefully) won't change the guts
     my %whash = %{ $self->{"_${cal}_weeks"}->{ $args{week} } };
 
     return $attr eq 'week' ? %whash : $whash{$attr};
@@ -574,14 +577,14 @@ sub week {
 }
 
 # Automate creating week attribute mehtods
-for my $p_attr (qw( period period_week start end )) {
-    my $method = join( '::', __PACKAGE__, "week_${p_attr}" );
+for my $w_attr (qw( period period_week start end )) {
+    my $method = join( '::', __PACKAGE__, "week_${w_attr}" );
     {
         no strict 'refs';
         *$method = sub {
             my $self = shift;
 
-            return $self->$_week_attr( $p_attr, @_ );
+            return $self->$_week_attr( $w_attr, @_ );
           }
     }
 }
@@ -888,7 +891,7 @@ this:
   
  my $dt = DateTime->today( time_zone => 'floating' );
  if ( my $wnum = $fc->contains( date => $dt ) ) {
-     print "$dt is in weel $wnum\n";
+     print "$dt is in week $wnum\n";
  }
   
  my %containers = $fc->contains( '2012-06-04' );
@@ -899,8 +902,8 @@ this:
         };
 
 Returns the week number in the designated style that contains the given
-date or '0' if not. The method will C<croak> if an error occurs such as an
-invalid date format or unknown style type.
+date or C<undef> if not. The method will C<croak> if an error occurs such
+as an invalid date format or unknown style type.
 
 This method takes two named parameters, 'date' and 'style'. Bear in mind
 that some dates that are in the fiscal calendar might not be in a restated
@@ -908,7 +911,7 @@ or truncated calendar. A single un-named parameter can be used as a shorthand
 for supplying only the date.
 
 A hash containing both the period and week numbers is returned if the
-method is called in list context.
+method is called in list context and the date is present.
 
 =over 4
 
