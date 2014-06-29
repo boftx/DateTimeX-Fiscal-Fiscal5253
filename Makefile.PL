@@ -9,6 +9,8 @@ WriteMakefile(
         DateTime => 0,
         Carp => 0
     }, # e.g., Module::Name => 1.1
+    MIN_PERL_VERSION => '5.8.8',
+    LICENSE  => 'perl_5',
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/DateTimeX/Fiscal/Fiscal5253.pm', # retrieve abstract from module
        AUTHOR         => 'Jim Bacon <jim@nortx.com>') : ()),
