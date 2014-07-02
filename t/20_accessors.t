@@ -93,7 +93,7 @@ foreach (@accessors) {
 foreach (@accessors) {
     my $accessor = $_->{accessor};
     eval { my $foo = $fc->$accessor( $_->{expect} ); };
-    like( $@, qr/read\-only accessor/, "blocked setting $accessor" );
+    like( $@, qr/$accessor/, "blocked setting $accessor" );
 }
 
 done_testing();

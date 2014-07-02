@@ -36,13 +36,13 @@ my @goodparams = (
     {
         tname  => 'maximum end_month value',
         params => {
-            end_month => '1',
+            end_month => '12',
         },
     },
     {
         tname  => 'minimum end_dow value',
         params => {
-            end_month => '1',
+            end_dow => '1',
         },
     },
     {
@@ -150,7 +150,7 @@ my @failparams = (
         params => {
             foo => 'bar',
         },
-        match => 'Unknown param',
+        match => 'unknown attribute',
     },
     {
         tname  => 'detect invalid value for param end_month: 0',
