@@ -82,8 +82,8 @@ my $_valid_cal_style = sub {
 
 # Define attributes and psuedo-attributes
 has end_month => (
-    is      => 'ro',
-    isa     => sub {
+    is  => 'ro',
+    isa => sub {
         croak "Invalid value for param end_month: $_[0]"
           unless $_[0] =~ /^(?:1[0-2]|[1-9])\z/;
     },
@@ -91,8 +91,8 @@ has end_month => (
 );
 
 has end_dow => (
-    is      => 'ro',
-    isa     => sub {
+    is  => 'ro',
+    isa => sub {
         croak "Invalid value for param end_dow: $_[0]"
           unless $_[0] =~ /^[1-7]\z/;
     },
@@ -100,9 +100,9 @@ has end_dow => (
 );
 
 has end_type => (
-    is      => 'ro',
+    is     => 'ro',
     coerce => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
-    isa => sub {
+    isa    => sub {
         croak "Invalid value for param end_type: $_[0]"
           unless $_[0] =~ /^(?:last|closest)$/;
     },
@@ -110,9 +110,9 @@ has end_type => (
 );
 
 has leap_period => (
-    is      => 'ro',
+    is     => 'ro',
     coerce => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
-    isa => sub {
+    isa    => sub {
         croak "Invalid value for param leap_period: $_[0]"
           unless $_[0] =~ /^(?:first|last)$/;
     },
@@ -156,18 +156,20 @@ has _weeks => (
 has style => (
     is       => 'rw',
     init_arg => undef,
-    coerce => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
-    isa => $_valid_cal_style,
+    coerce   => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
+    isa      => $_valid_cal_style,
     default  => sub { my $self = shift; $self->{style} = 'fiscal'; },
 );
+
+# One of the few cases where modifying "new" is the right thing to do.
+before new => sub {
+    croak 'Must be called as a class method only' if ref( $_[0] );
+};
 
 around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
     my %args  = @_;
-
-    # no need for cargo-cult programming
-    croak 'Must be called as a class contructor only!' if ref($class);
 
     # which one would be correct?
     croak 'Mutually exclusive parameters "year" and "date" are present'
@@ -271,10 +273,6 @@ sub _build_weeks {
 
     return;
 }
-
-before new => sub {
-    croak 'Must be called as a class method only' if ref($_[0]);
-};
 
 # Build the basic calendar structures as needed.
 sub _build_periods {
