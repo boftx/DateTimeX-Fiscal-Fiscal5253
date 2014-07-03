@@ -180,6 +180,12 @@ around BUILDARGS => sub {
     return $class->$orig(%args);
 };
 
+# One of the few cases where modifying "new" is the right thing to do.
+# NOTE! testing reveals that this B<must not> come before "BUILDARGS".
+before new => sub {
+    croak 'Must be called as a class method only' if ref( $_[0] );
+};
+
 # Initialize the internal structures now that we know our params are good.
 sub BUILD {
     my $self = shift;
@@ -206,12 +212,6 @@ sub BUILD {
 
     return;
 }
-
-# One of the few cases where modifying "new" is the right thing to do.
-#NOTE! testing reveals that this B<must not> come before "BUILD".
-before new => sub {
-    croak 'Must be called as a class method only' if ref( $_[0] );
-};
 
 sub _build_year {
     my $self = shift;
