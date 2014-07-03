@@ -12,6 +12,40 @@ use Carp;
 use DateTime;
 use POSIX qw( strftime );
 
+my @periodmonths = (
+    qw(
+      January
+      February
+      March
+      April
+      May
+      June
+      July
+      August
+      September
+      October
+      November
+      December
+      )
+);
+
+# Figure out if the epoch is a 32- or 64-bit value and use DT if needed
+my $_use_dt = sub {
+    my $year = shift;
+
+    # test for 32- or 64-bit time values. This is in an eval because there
+    # is apparently a bug in Perl 5.10.0 on a Win32 v5 build that causes
+    # gmtime to return undefs when the epoch rolls over. This of course
+    # will throw an uninitialized error with "use warnings FATAL => 'all'"
+    # in effect.
+    my $is_32 = eval {
+        my @tdata = gmtime(2147483651);    # This is 4 sec past the rollover
+        return ( $tdata[5] == 138 );
+    };
+
+    return $is_32 && ( $year < 1903 || $year > 2037 );
+};
+
 # Utility function to convert a date string to a DT object
 my $_str2dt = sub {
     my $date = shift;
@@ -35,52 +69,64 @@ my $_str2dt = sub {
     return $date;
 };
 
+# Utility function to validate values supplied as a calendar style.
+my $_valid_cal_style = sub {
+    my $style = shift || 'fiscal';
+
+    $style =~ tr/A-Z/a-z/;
+    croak "Invalid calendar style specified: $style"
+      unless $style =~ /^(fiscal|restated|truncated)$/;
+
+    return $style;
+};
+
+# Define attributes and psuedo-attributes
 has end_month => (
     is      => 'ro',
-    default => sub { my $self = shift; $self->{end_month} = 12; },
     isa     => sub {
         croak "Invalid value for param end_month: $_[0]"
           unless $_[0] =~ /^(?:1[0-2]|[1-9])\z/;
     },
+    default => sub { my $self = shift; $self->{end_month} = 12; },
 );
 
 has end_dow => (
     is      => 'ro',
-    default => sub { my $self = shift; $self->{end_dow} = 6; },
     isa     => sub {
         croak "Invalid value for param end_dow: $_[0]"
           unless $_[0] =~ /^[1-7]\z/;
     },
+    default => sub { my $self = shift; $self->{end_dow} = 6; },
 );
 
 has end_type => (
     is      => 'ro',
-    default =>  sub { my $self = shift; $self->{end_type} = 'last'; },
-    coerce   => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
-    isa     => sub {
+    coerce => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
+    isa => sub {
         croak "Invalid value for param end_type: $_[0]"
           unless $_[0] =~ /^(?:last|closest)$/;
     },
+    default => sub { my $self = shift; $self->{end_type} = 'last'; },
 );
 
 has leap_period => (
     is      => 'ro',
-    default =>  sub { my $self = shift; $self->{leap_period} = 'last'; },
-    coerce   => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
-    isa     => sub {
+    coerce => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
+    isa => sub {
         croak "Invalid value for param leap_period: $_[0]"
           unless $_[0] =~ /^(?:first|last)$/;
     },
+    default => sub { my $self = shift; $self->{leap_period} = 'last'; },
 );
 
 has year => (
-    is   => 'rwp',
-#    lazy => 1,
-    builder => '_build_year',
+    is      => 'rwp',
+    builder => 1,
+    lazy    => 1,
 );
 
 has _date => (
-    is       => 'rwp',
+    is       => 'rw',
     init_arg => 'date',
     coerce   => $_str2dt,
     isa      => sub {
@@ -90,28 +136,29 @@ has _date => (
 );
 
 has _start_ymd => (
-    is       => 'rwp',
+    is       => 'rw',
     init_arg => undef,
     reader   => 'start',
 );
 
 has _end_ymd => (
-    is       => 'rwp',
+    is       => 'rw',
     init_arg => undef,
     reader   => 'end',
 );
 
 has _weeks => (
-    is       => 'rwp',
+    is       => 'rw',
     init_arg => undef,
     reader   => 'weeks',
 );
 
 has style => (
-    is => 'rw',
+    is       => 'rw',
     init_arg => undef,
-    default =>  sub { my $self = shift; $self->{style} = 'fiscal'; },
-#    reader   => 'style',
+    coerce => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
+    isa => $_valid_cal_style,
+    default  => sub { my $self = shift; $self->{style} = 'fiscal'; },
 );
 
 around BUILDARGS => sub {
@@ -136,79 +183,47 @@ around BUILDARGS => sub {
     return $class->$orig(%args);
 };
 
+# Initialize the internal structures now that we know our params are good.
+sub BUILD {
+    my $self = shift;
+
+    $self->{_fiscal}    = undef;
+    $self->{_restated}  = undef;
+    $self->{_truncated} = undef;
+
+    $self->{_start}     = $self->_start5253;
+    $self->{_start_ymd} = $self->{_start}->ymd;
+    $self->{_end}       = $self->_end5253;
+    $self->{_end_ymd}   = $self->{_end}->ymd;
+
+    $self->{_weeks} =
+      $self->{_start}->clone->add( days => 367 ) > $self->{_end} ? 52 : 53;
+
+    $self->_build_weeks;
+    $self->_build_periods('fiscal');
+
+    if ( $self->{_weeks} == 53 ) {
+        $self->_build_periods('restated');
+        $self->_build_periods('truncated');
+    }
+
+    return;
+}
+
 sub _build_year {
     my $self = shift;
 
-    # we are guaranteed that _date contains a DateTime object if this
-    # is reached.
+    # we *should be* guaranteed that _date contains a DateTime object
+    # if this is reached because no value was supplied for 'year'.
     $self->{_date}->truncate( to => 'day' )->set_time_zone('floating');
 
     return $self->_find5253;
 }
 
-sub _trigger_end_type {
-    my $self = shift;
-
-warn "ORIG end_type: $self->{end_type}\n";
-    $self->{end_type} =~ tr[A-Z][a-z];
-warn "PROCESSED end_type: $self->{end_type}\n";
-}
-
-sub _trigger_leap_period {
-    my $self = shift;
-
-    $self->{leap_period} =~ tr[A-Z][a-z];
-}
-
-my @periodmonths = (
-    qw(
-      January
-      February
-      March
-      April
-      May
-      June
-      July
-      August
-      September
-      October
-      November
-      December
-      )
-);
-
-# Utility function to validate values supplied as a calendar style.
-my $_valid_cal_style = sub {
-    my $style = shift || 'fiscal';
-
-    $style =~ tr/A-Z/a-z/;
-    croak "Invalid calendar style specified: $style"
-      unless $style =~ /^(fiscal|restated|truncated)$/;
-
-    return $style;
-};
-
-# Figure out if the epoch is a 32- or 64-bit value and use DT if needed
-my $_use_dt = sub {
-    my $year = shift;
-
-    # test for 32- or 64-bit time values. This is in an eval because there
-    # is apparently a bug in Perl 5.10.0 on a Win32 v5 build that causes
-    # gmtime to return undefs when the epoch rolls over. This of course
-    # will throw an uninitialized error with "use warnings FATAL => 'all'"
-    # in effect.
-    my $is_32 = eval {
-        my @tdata = gmtime(2147483651);    # This is 4 sec past the rollover
-        return ( $tdata[5] == 138 );
-    };
-
-    return $is_32 && ( $year < 1903 || $year > 2037 );
-};
-
 # Build the week array once, then manipulate as needed.
 # Using epoch math is more than an order of magnitude faster
 # than DT, but the size of the epoch value must be tested.
-my $_build_weeks = sub {
+sub _build_weeks {
     my $self = shift;
 
     my $weeks = {};
@@ -255,12 +270,16 @@ my $_build_weeks = sub {
     $self->{_weeks_raw} = $weeks;
 
     return;
+}
+
+before new => sub {
+    croak 'Must be called as a class method only' if ref($_[0]);
 };
 
-# This code ref builds the basic calendar structures as needed.
-my $_build_periods = sub {
+# Build the basic calendar structures as needed.
+sub _build_periods {
     my $self = shift;
-    my $style = shift || $self->{_style};
+    my $style = shift || $self->{style};
 
     # not strictly needed, but makes for easier to read code
     my $restate  = $style eq 'restated'  ? 1 : 0;
@@ -359,7 +378,7 @@ my $_build_periods = sub {
     }
 
     return;
-};
+}
 
 # The end day for a specified year is trivial to determine. In normal
 # accounting use, a fiscal year is named for the calendar year it ends in,
@@ -420,49 +439,10 @@ sub _find5253 {
     return $y1;
 }
 
-# Duh
-sub BUILD {
-    my $self = shift;
-
-    # All parameters have been validated, make the object.
-        $self->{_fiscal}    = undef,
-        $self->{_restated}  = undef,
-        $self->{_truncated} = undef,
-
-    $self->{_start}     = $self->_start5253;
-    $self->{_start_ymd} = $self->{_start}->ymd;
-    $self->{_end}       = $self->_end5253;
-    $self->{_end_ymd}   = $self->{_end}->ymd;
-
-    $self->{_weeks} =
-      $self->{_start}->clone->add( days => 367 ) > $self->{_end} ? 52 : 53;
-
-    $self->$_build_weeks;
-    $self->$_build_periods('fiscal');
-
-    if ( $self->{_weeks} == 53 ) {
-        $self->$_build_periods('restated');
-        $self->$_build_periods('truncated');
-    }
-
-    return;
-}
-
 sub has_leap_week {
     my $self = shift;
 
     return ( $self->{_weeks} == 53 ? 1 : 0 );
-}
-
-sub OLD_style {
-    my $self = shift;
-
-    if (@_) {
-        croak 'Too many arguments' if @_ > 1;
-        $self->{_style} = &{$_valid_cal_style}(shift);
-    }
-
-    return $self->{_style};
 }
 
 # return summary data about a calendar.
@@ -470,7 +450,7 @@ sub summary {
     my $self = shift;
     my %args = @_ == 1 ? ( style => shift ) : @_;
 
-    $args{style} ||= $self->{_style};
+    $args{style} ||= $self->{style};
     croak 'Unknown parameter present' if scalar( keys(%args) ) > 1;
 
     my $cal = &{$_valid_cal_style}( $args{style} );
@@ -488,7 +468,7 @@ sub contains {
     my %args = @_ == 1 ? ( date => shift ) : @_;
 
     $args{date}  ||= 'today';
-    $args{style} ||= $self->{_style};
+    $args{style} ||= $self->{style};
 
     croak 'Unknown parameter present' if scalar( keys(%args) ) > 2;
 
@@ -531,7 +511,7 @@ my $_period_attr = sub {
     my %args = @_ == 1 ? ( period => shift ) : @_;
 
     $args{period} ||= 0;
-    $args{style}  ||= $self->{_style};
+    $args{style}  ||= $self->{style};
 
     croak 'Unknown parameter present' if scalar( keys(%args) ) > 2;
 
@@ -577,7 +557,7 @@ my $_week_attr = sub {
     my %args = @_ == 1 ? ( week => shift ) : @_;
 
     $args{week}  ||= 0;
-    $args{style} ||= $self->{_style};
+    $args{style} ||= $self->{style};
 
     croak 'Unknown parameter present' if scalar( keys(%args) ) > 2;
 
@@ -677,7 +657,8 @@ in any existing code.
      leap_period => 'last',
  );
 
-The constructor accepts the following parameters:
+The constructor B<must> be called as a class method and will throw an
+exception if not. It accepts the following parameters:
 
 =over 4
 

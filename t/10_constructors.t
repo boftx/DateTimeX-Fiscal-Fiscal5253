@@ -316,7 +316,7 @@ my @failparams = (
     },
 );
 
-my $testplan = @goodparams + ( @failparams * 2 );
+my $testplan = @goodparams + ( @failparams * 2 ) + 1;
 $testplan *= 2;
 
 plan( tests => $testplan );
@@ -336,6 +336,13 @@ foreach (@failparams) {
     is( $fc, undef, $_->{tname} );
     like( $@, qr/$_->{match}/, $_->{tname} );
 }
+
+# Verify that "new" can only be called as a class method.
+
+my $fc = $class->new();
+my $fc2 = eval { $fc->new() };
+is( $fc2, undef, 'Can not call "new" on an object' );
+like( $@, qr/class method only/, 'new must be called as a class method' );
 
 # Now do it all over again using the Empty::Fiscal5253 class to be sure
 # this module can be safely sub-classed. A single test of the basic
