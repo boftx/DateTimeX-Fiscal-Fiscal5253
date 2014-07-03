@@ -161,11 +161,6 @@ has style => (
     default  => sub { my $self = shift; $self->{style} = 'fiscal'; },
 );
 
-# One of the few cases where modifying "new" is the right thing to do.
-before new => sub {
-    croak 'Must be called as a class method only' if ref( $_[0] );
-};
-
 around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
@@ -211,6 +206,12 @@ sub BUILD {
 
     return;
 }
+
+# One of the few cases where modifying "new" is the right thing to do.
+#NOTE! testing reveals that this B<must not> come before "BUILD".
+before new => sub {
+    croak 'Must be called as a class method only' if ref( $_[0] );
+};
 
 sub _build_year {
     my $self = shift;
