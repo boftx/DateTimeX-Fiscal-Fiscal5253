@@ -338,11 +338,10 @@ foreach (@failparams) {
 }
 
 # Verify that "new" can only be called as a class method.
-
 my $fc = $class->new();
 my $fc2 = eval { $fc->new() };
 is( $fc2, undef, 'Can not call "new" on an object' );
-like( $@, qr/class method only/, 'new must be called as a class method' );
+like( $@, qr/class method/, 'new must be called as a class method' );
 
 # Now do it all over again using the Empty::Fiscal5253 class to be sure
 # this module can be safely sub-classed. A single test of the basic
