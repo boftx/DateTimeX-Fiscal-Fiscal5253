@@ -1,16 +1,13 @@
 package DateTimeX::Fiscal::Fiscal5253;
 
-use Moo;
-use MooX::StrictConstructor;
-
 our $VERSION = '2.01';
-
-use Data::Dumper;
-$Data::Dumper::Indent = 1;
 
 use Carp;
 use DateTime;
 use POSIX qw( strftime );
+
+use Moo;
+use MooX::StrictConstructor;
 
 my @periodmonths = (
     qw(

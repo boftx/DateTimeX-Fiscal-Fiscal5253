@@ -1,6 +1,11 @@
 Revision history for Perl extension DateTimeX::Fiscal::Fiscal5253
 
 2014-06-29 15:30  jim
+    Version 2.01
+    * Changed to Moo
+    * Changed to Test::Exception in some tests
+
+2014-06-29 15:30  jim
     Version 1.06
     * Set minimum Perl version to 5.8.8 in Makefile.PL
     * Removed unwanted accessor for "date" from automatic generation code.
