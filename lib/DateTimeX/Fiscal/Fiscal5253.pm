@@ -156,7 +156,7 @@ has _weeks => (
 has style => (
     is       => 'rw',
     init_arg => undef,
-    coerce => sub { my $tmp = $_[0]; $tmp =~ tr[A-Z][a-z]; return $tmp; },
+    coerce   => sub { my $tmp = $_[0]; $tmp =~ tr[A-Z][a-z]; return $tmp; },
     isa      => $_valid_cal_style,
     default  => 'fiscal',
 );
