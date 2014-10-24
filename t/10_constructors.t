@@ -4,6 +4,7 @@ use warnings;
 use DateTime;
 
 use Test::More;
+use Test::Exception;
 
 require DateTimeX::Fiscal::Fiscal5253;
 my $class = 'DateTimeX::Fiscal::Fiscal5253';
@@ -143,7 +144,7 @@ my @goodparams = (
     },
 );
 
-# All of these constructor calls should fail with a return value of undef.
+# All of these constructor calls should fail via croak.
 my @failparams = (
     {
         tname  => 'detect unknown parameter',
@@ -316,51 +317,46 @@ my @failparams = (
     },
 );
 
-my $testplan = @goodparams + ( @failparams * 2 ) + 1;
+my $testplan = @goodparams + @failparams;
 $testplan *= 2;
+$testplan += 1;
 
 plan( tests => $testplan );
 
 # Loop through the good combinations
-# Yes, this could use "new_ok", but I don't like representing a hash as an
-# array, even though that is technically what it is internally.
 foreach (@goodparams) {
-    my $fc = $class->new( %{ $_->{params} } );
-    isa_ok( $fc, $class, $_->{tname} );
+    lives_ok( sub { $class->new( %{ $_->{params} } ) }, $_->{tname} );
 }
 
 # Now test the bad param combinations
-# Disable STDERR so we don't get a lot of clutter from intentional failures.
 foreach (@failparams) {
-    my $fc = eval { $class->new( %{ $_->{params} } ) };
-    is( $fc, undef, $_->{tname} );
-    like( $@, qr/$_->{match}/, $_->{tname} );
+    throws_ok( sub { $class->new( %{ $_->{params} } ) },
+        qr/$_->{match}/, $_->{tname} );
 }
 
 # Verify that "new" can only be called as a class method.
 my $fc = $class->new();
-my $fc2 = eval { $fc->new() };
-is( $fc2, undef, 'Can not call "new" on an object' );
-like( $@, qr/class method/, 'new must be called as a class method' );
+throws_ok(
+    sub { $fc->new },
+    qr/class method/,
+    'new must be called as a class method'
+);
 
 # Now do it all over again using the Empty::Fiscal5253 class to be sure
 # this module can be safely sub-classed. A single test of the basic
 # constructor would probably suffice, but why not be sure?
 
-$class = 'Empty::Fiscal5253';
-
 # Loop through the good combinations
 foreach (@goodparams) {
-    my $fc = $class->new( %{ $_->{params} } );
-    isa_ok( $fc, $class, $_->{tname} );
+    lives_and(
+        sub { isa_ok( Empty::Fiscal5253->new( %{ $_->{params} } ), $class ) },
+        $_->{tname} . ' as Empty::Fiscal5253' );
 }
 
 # Now test the bad param combinations
-# Capture STDERR to check for correct error message.
 foreach (@failparams) {
-    my $fc = eval { $class->new( %{ $_->{params} } ) };
-    is( $fc, undef, $_->{tname} );
-    like( $@, qr/$_->{match}/, $_->{tname} );
+    throws_ok( sub { Empty::Fiscal5253->new( %{ $_->{params} } ) },
+        qr/$_->{match}/, $_->{tname} . ' as Empty::Fiscal5253' );
 }
 
 exit;

@@ -2,6 +2,7 @@ use strict;
 use warnings;
 
 use Test::More;
+use Test::Exception;
 
 require DateTimeX::Fiscal::Fiscal5253;
 my $class = 'DateTimeX::Fiscal::Fiscal5253';
@@ -74,8 +75,8 @@ foreach (@accessors) {
 # Now test that trying to change a parameter value will emit a "croak"
 foreach (@accessors) {
     my $accessor = $_->{accessor};
-    eval { my $foo = $fc->$accessor( $_->{expect} ); };
-    like( $@, qr/$accessor/, "blocked setting $accessor" );
+    throws_ok( sub { my $foo = $fc->$accessor( $_->{expect} ) },
+        qr/$accessor/, "blocked setting $accessor" );
 }
 
 # Now do it all over again using the Empty::Fiscal5253 class to be sure
@@ -92,8 +93,8 @@ foreach (@accessors) {
 
 foreach (@accessors) {
     my $accessor = $_->{accessor};
-    eval { my $foo = $fc->$accessor( $_->{expect} ); };
-    like( $@, qr/$accessor/, "blocked setting $accessor" );
+    throws_ok( sub { my $foo = $fc->$accessor( $_->{expect} ) },
+        qr/$accessor/, "blocked setting $accessor" );
 }
 
 done_testing();
