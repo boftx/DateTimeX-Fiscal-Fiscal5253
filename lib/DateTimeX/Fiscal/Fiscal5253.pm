@@ -87,7 +87,7 @@ has end_month => (
         croak "Invalid value for param end_month: $_[0]"
           unless $_[0] =~ /^(?:1[0-2]|[1-9])\z/;
     },
-    default => sub { my $self = shift; $self->{end_month} = 12; },
+    default => 12,
 );
 
 has end_dow => (
@@ -96,27 +96,27 @@ has end_dow => (
         croak "Invalid value for param end_dow: $_[0]"
           unless $_[0] =~ /^[1-7]\z/;
     },
-    default => sub { my $self = shift; $self->{end_dow} = 6; },
+    default => 6,
 );
 
 has end_type => (
     is     => 'ro',
-    coerce => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
+    coerce => sub { my $tmp = $_[0]; $tmp =~ tr[A-Z][a-z]; return $tmp; },
     isa    => sub {
         croak "Invalid value for param end_type: $_[0]"
           unless $_[0] =~ /^(?:last|closest)$/;
     },
-    default => sub { my $self = shift; $self->{end_type} = 'last'; },
+    default => 'last',
 );
 
 has leap_period => (
     is     => 'ro',
-    coerce => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
+    coerce => sub { my $tmp = $_[0]; $tmp =~ tr[A-Z][a-z]; return $tmp; },
     isa    => sub {
         croak "Invalid value for param leap_period: $_[0]"
           unless $_[0] =~ /^(?:first|last)$/;
     },
-    default => sub { my $self = shift; $self->{leap_period} = 'last'; },
+    default => 'last',
 );
 
 has year => (
@@ -156,9 +156,9 @@ has _weeks => (
 has style => (
     is       => 'rw',
     init_arg => undef,
-    coerce   => sub { $_[0] =~ tr[A-Z][a-z]; return $_[0]; },
+    coerce => sub { my $tmp = $_[0]; $tmp =~ tr[A-Z][a-z]; return $tmp; },
     isa      => $_valid_cal_style,
-    default  => sub { my $self = shift; $self->{style} = 'fiscal'; },
+    default  => 'fiscal',
 );
 
 around BUILDARGS => sub {
